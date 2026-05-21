@@ -1,164 +1,158 @@
 ## Verdict
 
-`model = HMF_strang_cons` is **not properly implemented** against `doc/strang-splitting-conservative-spec.md`.
+**No — `strang_cons` is only partially implemented and is not compliant with `doc/strang-splitting-conservative-spec.md` under a strict reading.**
 
-The most important defect is not numerical subtlety: **the model selector is probably unreachable**. `newHMF` declares the optional `model` argument as `character(len=12)`, but `HMF_strang_cons` has 15 characters. The constructor then compares that 12-character dummy argument to the full string `HMF_strang_cons`; that comparison will not match. As a result, `this%V%use_conservative_sl` remains at its default `.false.`, and the code falls back to the original spline interpolation path rather than the conservative semi-Lagrangian path.    
+There is **no standalone `strang_cons` routine**. It is a configuration scheme: `newHMF(..., scheme=...)` sets `this%V%use_conservative_sl = .true.` only when `scheme == 'strang_cons'`, and `advance_x` / `advance_v` then dispatch to `advance_x_conservative` / `advance_v_conservative`.  
 
-## Main findings
+The implementation does get the **Strang sequencing** mostly right, but the conservative advection operator is a **low-order two-point remap**, not the documented finite-volume semi-Lagrangian method with conservative polynomial reconstruction of cell averages.
 
-### 1. `HMF_strang_cons` is not activated
+---
 
-`PTread_s` returns a `character*144` string, and `vmf90_hmf.f90` passes `PTread_s(HCF, 'model')` into `newHMF`.   But inside `newHMF`, the dummy argument is only `character(len=12)`. The intended selector `HMF_strang_cons` is then compared against that shortened dummy.  
+## What is implemented correctly
 
-Consequence: with a normal input line such as
+| Spec item                                     |                                                                                                                              Implementation status |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------: |
+| Configurable conservative mode                |                                                                                  **Yes**. `scheme = strang_cons` activates `use_conservative_sl`.  |
+| Strang order `A(dt/2) B(dt) A(dt/2)`          |                    **Mostly yes**. The loop does `advance_x(0.5)`, then force / `advance_v(1.0)`, then `advance_x`, ending with `advance_x(0.5)`.  |
+| Force evaluated after first angular half-step |                                                    **Yes**. The loop computes `rho`, then `force`, after `advance_x(0.5)` and before `advance_v`.  |
+| Force formula                                 |                                                 **Yes for HMF**. `force = cos(x)*My - sin(x)*Mx`, equivalent to `-Mx sin(theta) + My cos(theta)`.  |
+| Periodic angular remap                        |                   **Yes in a narrow sense**. `advance_x_conservative` uses periodic indexing and therefore preserves each fixed-velocity row sum.  |
+| Momentum zero extension                       | **Partially**. `advance_v_conservative` drops contributions whose source index falls outside `1:Nv`, which is a discrete zero-extension behavior.  |
 
-```text
-model = HMF_strang_cons
-```
+---
 
-the constructor will behave like ordinary non-external HMF and leave `use_conservative_sl = .false.`. The dispatcher therefore calls `advance_x_spline` and `advance_v_spline`, not the conservative implementations.  
+## Blocking mismatches with the spec
 
-This alone is enough to answer the question: **as configured by `model = HMF_strang_cons`, the documented conservative method is not actually selected.**
+### 1. The grid is not the documented cell-centered finite-volume grid
 
-### 2. The latent conservative θ-advection has a periodic-indexing bug
+The spec requires cell centers
 
-Even if the model-string length is fixed, the conservative θ-advection has a serious boundary bug:
+[
+\theta_i=(i+1/2)\Delta\theta,\qquad
+p_j=-p_{\max}+(j+1/2)\Delta p,\qquad
+\Delta p=2p_{\max}/N_p.
+]
 
-```fortran
-periodic_idx = mod(i-1, n) + 1
-```
+It also defines the unknown as a **cell average** and expects mass to be computed from those cell averages.  
 
-
-
-Fortran `MOD(A,P)` returns a result with the same sign as `A`; for example, `MOD(-1,n)` is negative, not `n-1`. GNU Fortran documents `MOD(A,P)` as `A - INT(A/P) * P`, with the returned value having the same sign as `A`; `MODULO(A,P)` is the positive-wrap variant for positive `P`. ([GNU Compiler Collection][1])
-
-So `periodic_idx(0,n)` evaluates to `0`, not `n`. In `advance_x_conservative`, the expression
-
-```fortran
-this%copy(periodic_idx(i-ishift-1, this%Nx))
-```
-
-can therefore index `copy(0)` at the left periodic boundary.  This violates the spec’s required periodic wrapping for angular advection. The fix is:
+The code instead uses
 
 ```fortran
-periodic_idx = modulo(i-1, n) + 1
-```
-
-### 3. The conservative advection implemented is only first-order
-
-The spec calls for conservative semi-Lagrangian finite-volume advection using a conservative reconstruction of cell averages; it recommends piecewise parabolic, conservative cubic, or WENO reconstruction, and says publication-quality simulations should use at least third-order conservative reconstruction.  
-
-The implemented conservative routines are:
-
-```fortran
-f_new = (1-alpha)*copy(src0) + alpha*copy(src1)
-```
-
-for both θ and p directions.  This is the exact finite-volume remap for a **piecewise-constant** reconstruction. It is conservative in the finite-volume sense, apart from the θ wrapping bug above, but it is not the third-order-or-better reconstruction described for production use in the spec.
-
-### 4. The p-grid does not match the spec’s cell-centered finite-volume grid
-
-The spec defines a cell-centered momentum grid with
-
-```math
-p_j=-p_{\max}+(j+\tfrac12)\Delta p,\qquad \Delta p=2p_{\max}/N_p.
-```
-
-
-
-The code instead sets
-
-```fortran
-dv = (vmax-vmin)/dble(Nv-1)
+get_x = xmin + (ix-1)*dx
 get_v = vmin + (mv-1)*dv
 ```
 
- 
-
-That includes the momentum endpoints and uses `Nv-1` intervals, which is the original interpolation-grid convention, not the documented finite-volume cell-centered grid with `Np` cells. This affects quadrature, mass normalization, energy, and the interpretation of boundary mass.
-
-### 5. The Strang ordering and force timing are mostly correct
-
-The main time loop does implement the expected composition pattern:
+and, for periodic grids, sets
 
 ```fortran
-advance_x(..., 0.5)
-compute_rho
-compute_force
-advance_v(..., 1.0)
-advance_x(..., 0.5)
+dx = (xmax-xmin)/Nx
+dv = (vmax-vmin)/(Nv-1)
 ```
 
-with full `advance_x(...,1.0)` steps used to merge adjacent half-steps across multiple inner steps.  This matches the spec’s `A_{dt/2} B_dt A_{dt/2}` ordering and the requirement to compute magnetization/force after the first θ half-step.  
+with `Nv` points including the velocity endpoints. 
 
-The force formula is also consistent with the spec:
+That is a **nodal grid**, not the documented cell-centered finite-volume grid. This is a fundamental mismatch because the spec’s conservative semi-Lagrangian update is defined for **cell averages over cells**, not nodal samples.
+
+---
+
+### 2. The “conservative” advection is not the documented reconstruction/primitive method
+
+The spec requires, for each target cell, tracing the full cell backward and computing
+
+[
+\bar g_k^{new} =
+\frac{G(x_{k+1/2}-a\tau)-G(x_{k-1/2}-a\tau)}{\Delta x},
+]
+
+where (G) is the primitive of a conservative reconstruction (R[g]). It recommends PPM, conservative cubic, or WENO, and says publication-quality simulations should use at least third-order conservative reconstruction. 
+
+The implementation instead does a two-point convex remap:
 
 ```fortran
-force(i) = cos(theta_i)*My - sin(theta_i)*Mx
+f(i,m) = (1-alpha)*copy(idx0) + alpha*copy(idx1)
 ```
 
-which is `F_i = -Mx sin(theta_i) + My cos(theta_i)`.   
+for both angular and momentum advection. 
 
-### 6. Diagnostics are incomplete relative to the spec
+That can be interpreted as a **piecewise-constant / low-order remap**, and it is conservative in some discrete sums, but it is **not** the documented primitive-integral scheme with third-order-or-better conservative reconstruction.
 
-The spec requires monitoring mass, energy, magnetization, `L2`, positivity via `f_min`, and momentum-boundary mass `B_p`.  
+---
 
-The program writes mass, energy, kinetic/interacting energy, momentum, `Mx`, `My`, `I2`, and `I3`.  `I2` is computed as `sum(f^2)*dx*dv`, so it corresponds to the spec’s `L2` diagnostic.  But I found no corresponding output for `f_min` or momentum-boundary mass `B_p` in the HMF output setup. 
+### 3. The θ-advection row conservation is present, but only for the low-order operator
 
-## Compliance summary
+The spec explicitly says the angular substep must conserve the mass of each fixed-(p_j) row. 
 
-| Spec item                                         |                          Status | Notes                                                                                        |
-| ------------------------------------------------- | ------------------------------: | -------------------------------------------------------------------------------------------- |
-| `model = HMF_strang_cons` selects conservative SL |                        **Fail** | String length 12 makes the 15-character model name not match.                                |
-| Strang `A(dt/2) B(dt) A(dt/2)` ordering           |                        **Pass** | Main loop structure is consistent.                                                           |
-| Force computed after first θ half-step            |                        **Pass** | `compute_force` is called after `advance_x(0.5)` and uses the correct formula.               |
-| Conservative θ advection with periodic wrapping   |               **Fail / latent** | Uses `mod`, not `modulo`, so negative/zero wrapped indices can produce index 0.              |
-| Conservative p advection with zero extension      |                     **Partial** | Bounds checks implement zero extension, but the grid is not the spec’s cell-centered p-grid. |
-| Third-order-or-better conservative reconstruction |                        **Fail** | Implemented remap is piecewise constant / first-order.                                       |
-| Cell-centered finite-volume grid                  | **Fail for p; ambiguous for θ** | Momentum grid includes endpoints and uses `Nv-1`.                                            |
-| Required diagnostics                              |                     **Partial** | Mass, energy, Mx/My, and I2 exist; `f_min` and boundary mass are missing.                    |
+`advance_x_conservative` likely does preserve each row sum exactly because periodic indexing makes the source indices a wrapped permutation and the weights sum to one. 
 
-## Minimal fixes
+However, this is still not enough for compliance because the operator is not applied to a cell-centered cell-average grid and does not use the specified conservative reconstruction.
 
-The first fixes should be mechanical:
+---
+
+### 4. The p-advection zero extension is too crude for the documented method
+
+The spec requires the momentum update to integrate a reconstructed (R_p[\bar f]) over the traced-back momentum cell and use zero extension outside ([-p_{\max},p_{\max}]). 
+
+The code clips source indices:
 
 ```fortran
-! In HMF_module.f90
-character(len=*), optional, intent(in) :: model
-
-...
-
-if (present(model)) then
-   select case (trim(model))
-   case ('HMFext', 'HMFext_strang_cons')
-      this%is_ext = .true.
-      ...
-   case default
-      this%is_ext = .false.
-      this%epsilon = 1.d0
-      this%Hfield = 0.d0
-   end select
-
-   select case (trim(model))
-   case ('HMF_strang_cons', 'HMFext_strang_cons')
-      this%V%use_conservative_sl = .true.
-   end select
-end if
+if (src0.ge.1 .and. src0.le.Nv) ...
+if (src1.ge.1 .and. src1.le.Nv) ...
 ```
 
-Then fix the periodic indexer:
+This implements a discrete zero outside the array, but only for the two-point remap. It does **not** implement a zero-extended conservative reconstruction and primitive integral.
 
-```fortran
-integer function periodic_idx(i, n)
-  integer, intent(in) :: i, n
-  periodic_idx = modulo(i-1, n) + 1
-end function periodic_idx
-```
+---
 
-After that, the numerical implementation still needs work to match the document: change the p-grid to cell centers with `dv = (vmax-vmin)/Nv`, implement a third-order conservative reconstruction such as PPM/cubic/WENO using primitive integrals, and add `f_min` plus momentum-boundary-mass diagnostics.
+### 5. Diagnostics required by the spec are incomplete
 
-Bottom line: **the current code is not a conforming implementation of `doc/strang-splitting-conservative-spec.md`; in its present form, `model = HMF_strang_cons` almost certainly runs the old spline method, not the conservative Strang finite-volume method.
+The spec requires monitoring mass, energy, magnetization, (L_2), positivity via (f_{\min}), and momentum-boundary mass (B_p). It also asks for reporting max mass drift, energy drift, max (|f_{\min}|), max boundary mass, and convergence checks. 
 
-**
+The code computes/writes mass, energy, momentum, magnetization components, `I2`, `I3`, and optional moments.  
 
-[1]: https://gcc.gnu.org/onlinedocs/gfortran/MOD.html?utm_source=chatgpt.com "MOD (The GNU Fortran Compiler)"
+I did not find implementation of:
+
+* `f_min`
+* momentum-boundary mass `B_p`
+* automated convergence checks
+* reported max mass/energy/positivity/boundary diagnostics
+
+So the diagnostic section is not implemented as specified.
+
+---
+
+## Non-issues or minor issues
+
+The code uses ([-\pi,\pi)) rather than ([0,2\pi)) for angle. For a periodic HMF problem this is not a real mathematical problem, provided the quadrature and cell definitions are consistent. The larger issue is that the grid is nodal rather than cell-centered.
+
+The force timing is acceptable: after the initial angular half-step, the main loop computes `rho`, then `force`, then does momentum advection. 
+
+---
+
+## Bottom line
+
+`strang_cons` is better described as:
+
+> **Strang splitting with a low-order conservative-ish semi-Lagrangian remap**
+
+not as:
+
+> **Strang splitting with the documented conservative finite-volume semi-Lagrangian scheme using conservative reconstruction of cell averages.**
+
+To make it compliant, the implementation would need at least:
+
+1. A true cell-centered finite-volume grid:
+
+   ```fortran
+   dx = (xmax-xmin)/Nx
+   dv = (vmax-vmin)/Nv
+   get_x(i) = xmin + (i-0.5d0)*dx
+   get_v(m) = vmin + (m-0.5d0)*dv
+   ```
+
+2. Treat `f(i,m)` as a cell average, not a nodal value.
+
+3. Replace `advance_x_conservative` and `advance_v_conservative` with primitive-integral remap routines using at least a conservative cubic or PPM reconstruction.
+
+4. Implement zero-extension consistently in the reconstructed primitive for momentum advection.
+
+5. Add required diagnostics: `f_min`, momentum-boundary mass, max relative mass drift, max relative energy drift, and convergence runs.
