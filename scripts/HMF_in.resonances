@@ -12,3 +12,5 @@ bag = 1.3747727084867518     ! \Delta p for initial condition
 Nedf = 0                     ! number of points for energy DF
 Hfield = 0.                  ! External field in case of HMFext model
 n_moments = 0
+n_pmoments = 0
+n_hmoments = 0
