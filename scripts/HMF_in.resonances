@@ -1,4 +1,5 @@
-model = HMF                  ! the model name. is checked in the program
+model = HMF                  ! physical model name (HMF or HMFext)
+scheme = spline              ! advection/splitting scheme (spline or strang_cons)
 Nx = 256                     ! number of points in x-direction
 Nv = 512                     ! number of points in v-direction
 vmax = 2.5                   ! size of the box

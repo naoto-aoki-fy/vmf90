@@ -61,7 +61,8 @@ program runHMF
   n_hmoments = PTread_i(HCF, 'n_hmoments')
 
   call newHMF(H,Nx,Nv,vmax, Nedf=PTread_i(HCF,'Nedf'), model=PTread_s(HCF, 'model'), &
-       Hfield=PTread_d(HCF,'Hfield'), n_pmoments=n_pmoments, n_hmoments=n_hmoments)
+       scheme=PTread_s(HCF, 'scheme'), Hfield=PTread_d(HCF,'Hfield'), &
+       n_pmoments=n_pmoments, n_hmoments=n_hmoments)
   H%V%DT = DT
 
   call h5md_create_file(file_ID, 'hmf.h5', 'Pierre de Buyl <pdebuyl@ulb.ac.be>', 'vmf90_hmf', trim(vmf90_version()))

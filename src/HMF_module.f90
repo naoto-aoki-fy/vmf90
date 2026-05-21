@@ -83,13 +83,13 @@ contains
   !! @param epsilon Coupling parameter.
   !! @param Hfield External field.
   !! @param n_moments number of moments of p to compute
-  subroutine newHMF(this,Nx,Nv,vmax,vmin, Nedf, model, epsilon, Hfield, n_pmoments, n_hmoments)
+  subroutine newHMF(this,Nx,Nv,vmax,vmin, Nedf, model, scheme, epsilon, Hfield, n_pmoments, n_hmoments)
     type(HMF), intent(out) :: this
     integer, intent(in) :: Nx, Nv
     double precision, intent(in) :: vmax
     double precision, intent(in), optional :: vmin
     integer, intent(in), optional :: Nedf
-    character(len=*), optional, intent(in) :: model
+    character(len=*), optional, intent(in) :: model, scheme
     double precision, optional, intent(in) :: epsilon, Hfield
     integer, optional, intent(in) :: n_pmoments, n_hmoments
     double precision :: vmin_final
@@ -110,7 +110,7 @@ contains
     end if
 
     if (present(model)) then
-       if (trim(model).eq.'HMFext' .or. trim(model).eq.'HMFext_strang_cons') then
+       if (trim(model).eq.'HMFext') then
           this%is_ext = .true.
           if (present(epsilon)) then
              this%epsilon = epsilon
@@ -127,8 +127,10 @@ contains
           this%epsilon = 1.d0
           this%Hfield = 0.d0
        end if
-       if (trim(model).eq.'HMF_strang_cons' .or. trim(model).eq.'HMFext_strang_cons') then
-          this%V%use_conservative_sl = .true.
+       if (present(scheme)) then
+          if (trim(scheme).eq.'strang_cons') then
+             this%V%use_conservative_sl = .true.
+          end if
        end if
 
     end if
