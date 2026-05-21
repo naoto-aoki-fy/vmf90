@@ -110,7 +110,7 @@ contains
     end if
 
     if (present(model)) then
-       if (model.eq.'HMFext') then
+       if (model.eq.'HMFext' .or. model.eq.'HMFext_strang_cons') then
           this%is_ext = .true.
           if (present(epsilon)) then
              this%epsilon = epsilon
@@ -126,6 +126,9 @@ contains
           this%is_ext = .false.
           this%epsilon = 1.d0
           this%Hfield = 0.d0
+       end if
+       if (model.eq.'HMF_strang_cons' .or. model.eq.'HMFext_strang_cons') then
+          this%V%use_conservative_sl = .true.
        end if
 
     end if

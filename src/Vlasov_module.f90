@@ -49,6 +49,7 @@ module Vlasov_module
      double precision :: DT
      double precision :: en_int, en_kin, energie, masse, momentum
      logical :: is_periodic
+     logical :: use_conservative_sl
 
      double precision, allocatable :: f(:,:)
      double precision, allocatable :: d2(:), copy(:)
@@ -85,6 +86,7 @@ module Vlasov_module
       else
          this%is_periodic=.true.
       end if
+      this%use_conservative_sl = .false.
 
       if (this%is_periodic) then
          bonus_gridpoint=1
@@ -192,6 +194,16 @@ module Vlasov_module
     subroutine advance_x(this, h)
       type(grid), intent(inout) :: this
       double precision, intent(in) :: h
+      if (this%use_conservative_sl) then
+         call advance_x_conservative(this, h)
+      else
+         call advance_x_spline(this, h)
+      end if
+    end subroutine advance_x
+
+    subroutine advance_x_spline(this, h)
+      type(grid), intent(inout) :: this
+      double precision, intent(in) :: h
 
       integer :: i, m, l
       double precision :: x
@@ -225,13 +237,23 @@ module Vlasov_module
          end do
       end do
 
-    end subroutine advance_x
+    end subroutine advance_x_spline
 
     !> Advances the solution f by spline interpolation in the v-direction.
     !!
     !! @param this A type(grid) variable.
     !! @param h fraction of timestep this%DT to use.
     subroutine advance_v(this, h)
+      type(grid), intent(inout) :: this
+      double precision, intent(in) :: h
+      if (this%use_conservative_sl) then
+         call advance_v_conservative(this, h)
+      else
+         call advance_v_spline(this, h)
+      end if
+    end subroutine advance_v
+
+    subroutine advance_v_spline(this, h)
       type(grid), intent(inout) :: this
       double precision, intent(in) :: h
 
@@ -253,7 +275,52 @@ module Vlasov_module
          end do
       end do
 
-    end subroutine advance_v
+    end subroutine advance_v_spline
+
+    subroutine advance_x_conservative(this, h)
+      type(grid), intent(inout) :: this
+      double precision, intent(in) :: h
+      integer :: i, m, ishift
+      double precision :: shift, alpha
+
+      do m=1,this%Nv
+         this%copy(1:this%Nx) = this%f(1:this%Nx,m)
+         shift = this%DT*h*get_v(this,m)/this%dx
+         ishift = floor(shift)
+         alpha = shift - dble(ishift)
+         do i=1,this%Nx
+            this%f(i,m) = (1.d0-alpha)*this%copy(periodic_idx(i-ishift, this%Nx)) + &
+                 alpha*this%copy(periodic_idx(i-ishift-1, this%Nx))
+         end do
+      end do
+      this%f(this%Nx+1,:) = this%f(1,:)
+    end subroutine advance_x_conservative
+
+    subroutine advance_v_conservative(this, h)
+      type(grid), intent(inout) :: this
+      double precision, intent(in) :: h
+      integer :: i, m, ishift, src0, src1
+      double precision :: shift, alpha
+
+      do i=1,this%Nx
+         this%copy(1:this%Nv) = this%f(i,1:this%Nv)
+         shift = this%DT*h*this%force(i)/this%dv
+         ishift = floor(shift)
+         alpha = shift - dble(ishift)
+         do m=1,this%Nv
+            src0 = m-ishift
+            src1 = m-ishift-1
+            this%f(i,m) = 0.d0
+            if (src0.ge.1 .and. src0.le.this%Nv) this%f(i,m) = this%f(i,m) + (1.d0-alpha)*this%copy(src0)
+            if (src1.ge.1 .and. src1.le.this%Nv) this%f(i,m) = this%f(i,m) + alpha*this%copy(src1)
+         end do
+      end do
+    end subroutine advance_v_conservative
+
+    integer function periodic_idx(i, n)
+      integer, intent(in) :: i, n
+      periodic_idx = mod(i-1, n) + 1
+    end function periodic_idx
 
     !> Writes the distribution function f in a file of name "xvf.iiiii" in the directory
     !! "images" that should exist beforehand.

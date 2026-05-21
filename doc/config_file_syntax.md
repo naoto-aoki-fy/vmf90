@@ -60,6 +60,13 @@ vmf90_hmf supports the following extra options:
 ``Hfield``
     For fixed-field simulations, the value of the field.
 
+``model``
+    Solver/model selection. Supported values are:
+    - ``HMF``: standard HMF with spline semi-Lagrangian advection.
+    - ``HMFext``: external-field HMF with spline semi-Lagrangian advection.
+    - ``HMF_strang_cons``: HMF with Strang splitting + conservative semi-Lagrangian finite-volume advection.
+    - ``HMFext_strang_cons``: external-field HMF with Strang splitting + conservative semi-Lagrangian finite-volume advection.
+
 Initial conditions for vmf90_hmf
 --------------------------------
 
