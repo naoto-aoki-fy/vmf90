@@ -63,6 +63,10 @@ module HMF_module
      double precision :: I2
      !> I3
      double precision :: I3
+     !> Minimum value of f over the grid.
+     double precision :: f_min
+     !> Mass in the boundary momentum cells.
+     double precision :: Bp
      !> Moments of p
      double precision, allocatable :: pn(:)
      !> Moments of e
@@ -130,6 +134,7 @@ contains
        if (present(scheme)) then
           if (trim(scheme).eq.'strang_cons') then
              this%V%use_conservative_sl = .true.
+             this%V%dv = (this%V%vmax-this%V%vmin)/dble(this%V%Nv)
           end if
        end if
 
@@ -229,9 +234,11 @@ contains
     this%V%momentum = 0.d0
     this%V%masse = 0.d0
     this%I2 = 0.d0 ; this%I3 = 0.d0 ; this%entropy = 0.d0
+    this%f_min = this%V%f(1,1)
     do i=1,this%V%Nx
        do m=1,this%V%Nv
           loopf = this%V%f(i,m)
+          if (loopf.lt.this%f_min) this%f_min = loopf
           this%V%en_kin = this%V%en_kin + get_v(this%V,m)**2 * loopf
           this%V%momentum = this%V%momentum + get_v(this%V,m) * loopf
           this%I2 = this%I2 + loopf**2
@@ -254,6 +261,7 @@ contains
        end do
     end do
     this%V%masse = sum(this%V%f(1:this%V%Nx,:))
+    this%Bp = (sum(this%V%f(1:this%V%Nx,1)) + sum(this%V%f(1:this%V%Nx,this%V%Nv))) * this%V%dx * this%V%dv
     this%V%en_kin = this%V%en_kin*0.5d0  * this%V%dx * this%V%dv
     this%V%momentum = this%V%momentum    * this%V%dx * this%V%dv
     this%V%masse    = this%V%masse       * this%V%dx * this%V%dv

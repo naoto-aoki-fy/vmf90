@@ -42,6 +42,7 @@ program runHMF
 
   integer(HID_T) :: file_ID
   type(h5md_t) :: mass_ID, energy_ID, int_ID, kin_ID, momentum_ID, Mx_ID, My_ID, I2_ID, I3_ID, pn_ID, hn_ID
+  type(h5md_t) :: fmin_ID, Bp_ID
   type(h5md_t) :: edf_ID
   type(h5md_t) :: f_ID, rho_ID, phi_ID
 
@@ -220,6 +221,8 @@ contains
     call h5md_create_obs(file_ID, 'My', My_ID, H%My, link_from='mass')
     call h5md_create_obs(file_ID, 'I2', I2_ID, H%I2, link_from='mass')
     call h5md_create_obs(file_ID, 'I3', I3_ID, H%I3, link_from='mass')
+    call h5md_create_obs(file_ID, 'f_min', fmin_ID, H%f_min, link_from='mass')
+    call h5md_create_obs(file_ID, 'Bp', Bp_ID, H%Bp, link_from='mass')
     call h5md_create_obs(file_ID, 'edf', edf_ID, H%edf)
     if (allocated(H%pn)) then
        call h5md_create_obs(file_ID, 'pn', pn_ID, H%pn, link_from='mass')
@@ -244,6 +247,8 @@ contains
     call h5md_write_obs(My_ID, H%My, t_top, realtime)
     call h5md_write_obs(I2_ID, H%I2, t_top, realtime)
     call h5md_write_obs(I3_ID, H%I3, t_top, realtime)
+    call h5md_write_obs(fmin_ID, H%f_min, t_top, realtime)
+    call h5md_write_obs(Bp_ID, H%Bp, t_top, realtime)
     if (allocated(H%pn)) then
        call h5md_write_obs(pn_ID, H%pn, t_top, realtime)
     end if

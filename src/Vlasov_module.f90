@@ -174,7 +174,11 @@ module Vlasov_module
     double precision function get_x(this,ix)
       type(grid), intent(in) :: this
       integer, intent(in) :: ix
-      get_x = this%xmin + (ix-1)*this%dx
+      if (this%use_conservative_sl .and. this%is_periodic) then
+         get_x = this%xmin + (dble(ix)-0.5d0)*this%dx
+      else
+         get_x = this%xmin + (ix-1)*this%dx
+      end if
     end function get_x
     !> Returns the v coordinate for the type(grid) variable for the row index mv.
     !! @param this A type(grid) variable.
@@ -183,7 +187,11 @@ module Vlasov_module
     double precision function get_v(this,mv)
       type(grid), intent(in) :: this
       integer, intent(in) :: mv
-      get_v = this%vmin + (mv-1)*this%dv
+      if (this%use_conservative_sl) then
+         get_v = this%vmin + (dble(mv)-0.5d0)*this%dv
+      else
+         get_v = this%vmin + (mv-1)*this%dv
+      end if
     end function get_v
 
 
