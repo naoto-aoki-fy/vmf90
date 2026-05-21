@@ -89,7 +89,7 @@ contains
     double precision, intent(in) :: vmax
     double precision, intent(in), optional :: vmin
     integer, intent(in), optional :: Nedf
-    character(len=12), optional, intent(in) :: model
+    character(len=*), optional, intent(in) :: model
     double precision, optional, intent(in) :: epsilon, Hfield
     integer, optional, intent(in) :: n_pmoments, n_hmoments
     double precision :: vmin_final
@@ -110,7 +110,7 @@ contains
     end if
 
     if (present(model)) then
-       if (model.eq.'HMFext' .or. model.eq.'HMFext_strang_cons') then
+       if (trim(model).eq.'HMFext' .or. trim(model).eq.'HMFext_strang_cons') then
           this%is_ext = .true.
           if (present(epsilon)) then
              this%epsilon = epsilon
@@ -127,7 +127,7 @@ contains
           this%epsilon = 1.d0
           this%Hfield = 0.d0
        end if
-       if (model.eq.'HMF_strang_cons' .or. model.eq.'HMFext_strang_cons') then
+       if (trim(model).eq.'HMF_strang_cons' .or. trim(model).eq.'HMFext_strang_cons') then
           this%V%use_conservative_sl = .true.
        end if
 

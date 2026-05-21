@@ -319,7 +319,7 @@ module Vlasov_module
 
     integer function periodic_idx(i, n)
       integer, intent(in) :: i, n
-      periodic_idx = mod(i-1, n) + 1
+      periodic_idx = modulo(i-1, n) + 1
     end function periodic_idx
 
     !> Writes the distribution function f in a file of name "xvf.iiiii" in the directory
