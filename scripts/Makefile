@@ -17,8 +17,9 @@
 
 F90 = h5fc -O3 -I.
 VPATH = ../src
-all : hmf
+all : hmf hmf_ctypes
 hmf: vmf90_hmf
+hmf_ctypes: libhmf_ctypes.so
 
 vmf90_version.h: vmf90_version.h.in FORCE
 	../scripts/make_version.sh
@@ -33,6 +34,8 @@ vmf90.o: vmf90.f90 vmf90_version.h
 vmf90_hmf: h5md.o spline_module.o Vlasov_module.o HMF_module.o ParseText.o vmf90_version.h vmf90.o vmf90_hmf.o
 	$(F90) h5md.o spline_module.o Vlasov_module.o HMF_module.o ParseText.o vmf90.o vmf90_hmf.o -o vmf90_hmf
 
+libhmf_ctypes.so: spline_module.o Vlasov_module.o HMF_module.o hmf_ctypes.o
+	$(F90) -shared spline_module.o Vlasov_module.o HMF_module.o hmf_ctypes.o -o libhmf_ctypes.so
 
 
 clean:
@@ -41,4 +44,5 @@ clean:
 	spline_module.mod vlasov_module.mod parsetext.mod vmf90.mod vmf90.mod \
 	hmf_module.mod \
 	vmf90_version.h vmf90_hmf \
-	h5md.o h5md.mod
+	h5md.o h5md.mod \
+	hmf_ctypes.o hmf_ctypes.mod libhmf_ctypes.so

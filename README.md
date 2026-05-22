@@ -75,3 +75,18 @@ from the main directory of vmf90. The index of the documentation is found at
 Appropriate references to the algorithms are given in the documentation, as well
 as a full API documentation for the code and the Fortran modules.
 
+
+ctypes-based Python driver
+--------------------------
+
+A ctypes-enabled shared library can be built for the simulator computation core:
+
+    make -C build -f ../scripts/Makefile hmf_ctypes
+
+This creates `build/libhmf_ctypes.so` and exports the symbol `hmf_run`.
+
+A Python frontend is provided in `python/hmf_sim.py` to run the simulation from ctypes and save observables:
+
+    python3 python/hmf_sim.py --nx 64 --nv 64 --vmax 2.0 --dt 0.1 --n-steps 4 --n-top 10 --width 1.0 --bag 1.0
+
+The output is an `.npz` file containing arrays `mx`, `my` and `energy`.
