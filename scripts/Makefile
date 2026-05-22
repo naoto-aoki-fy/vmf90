@@ -16,6 +16,8 @@
 # along with vmf90.  If not, see <http://www.gnu.org/licenses/>.
 
 F90 = h5fc -O3 -I.
+PIC_FLAGS = -fPIC
+SHLIB_FLAGS = -shlib
 VPATH = ../src
 all : hmf hmf_ctypes
 hmf: vmf90_hmf
@@ -26,16 +28,16 @@ vmf90_version.h: vmf90_version.h.in FORCE
 FORCE:
 
 vmf90.o: vmf90.f90 vmf90_version.h
-	$(F90) -c $<
+	$(F90) $(PIC_FLAGS) -c $<
 
 %.o : %.f90
-	$(F90) -c $<
+	$(F90) $(PIC_FLAGS) -c $<
 
 vmf90_hmf: h5md.o spline_module.o Vlasov_module.o HMF_module.o ParseText.o vmf90_version.h vmf90.o vmf90_hmf.o
 	$(F90) h5md.o spline_module.o Vlasov_module.o HMF_module.o ParseText.o vmf90.o vmf90_hmf.o -o vmf90_hmf
 
 libhmf_ctypes.so: spline_module.o Vlasov_module.o HMF_module.o hmf_ctypes.o
-	$(F90) -shared spline_module.o Vlasov_module.o HMF_module.o hmf_ctypes.o -o libhmf_ctypes.so
+	$(F90) $(SHLIB_FLAGS) -shared spline_module.o Vlasov_module.o HMF_module.o hmf_ctypes.o -o libhmf_ctypes.so
 
 
 clean:
