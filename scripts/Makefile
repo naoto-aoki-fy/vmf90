@@ -33,6 +33,10 @@ vmf90.o: vmf90.f90 vmf90_version.h
 %.o : %.f90
 	$(F90) $(PIC_FLAGS) -c $<
 
+
+# Ensure Fortran module dependencies are built before sources that `use` them
+hmf_ctypes.o: hmf_ctypes.f90 HMF_module.o
+
 vmf90_hmf: h5md.o spline_module.o Vlasov_module.o HMF_module.o ParseText.o vmf90_version.h vmf90.o vmf90_hmf.o
 	$(F90) h5md.o spline_module.o Vlasov_module.o HMF_module.o ParseText.o vmf90.o vmf90_hmf.o -o vmf90_hmf
 
