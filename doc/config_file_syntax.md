@@ -1,8 +1,7 @@
 Configuration files syntax {#config_file_syntax}
 ==========================
 
-The vmf90 programs vmf90_hmf and vmf90_fel read the parameters for a simulation
-in the files HMF_in and FEL_in, respectively.
+The vmf90 program vmf90_hmf reads simulation parameters from the HMF_in file.
 
 Example parameter files are found in the ``scripts`` directory.
 

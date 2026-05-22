@@ -21,8 +21,6 @@ build:
 hmf: | build 
 	make -C build -f ../scripts/Makefile $@ 
 
-fel: | build
-	make -C build -f ../scripts/Makefile $@
 
 clean:
 	make -C build -f ../scripts/Makefile $@

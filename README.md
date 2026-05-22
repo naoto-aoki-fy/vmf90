@@ -4,9 +4,8 @@ vmf90 : Vlasov solver for mean-field systems in Fortran 90 {#README}
 Copyright © 2009-2015 Pierre de Buyl
 
 vmf90 is a software for the numerical resolution of the Vlasov equation for 
-mean-field systems, currently the Hamiltonian Mean-Field model and the
-Colson-Bonifacio model for the free electron laser. vmf90 is based
-on the semi-Lagrangian method with cubic spline interpolation.
+mean-field systems, specifically the Hamiltonian Mean-Field model.
+vmf90 is based on the semi-Lagrangian method with cubic spline interpolation.
 
 vmf90 is developed by Pierre de Buyl and is available under the [GNU General 
 Public License](http://www.gnu.org/licenses/gpl.html).
@@ -62,9 +61,6 @@ Usage
 
        ../scripts/show_vmf90.py hmf.h5 plot energy en_int en_kin
 
-To use the FEL program, the instructions are similar but "make hmf" becomes
-"make fel". Also, the program for the FEL is vmf90_fel and the parameters file
-for the FEL program is FEL_in.
 
 Documentation
 -------------
