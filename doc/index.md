@@ -20,3 +20,4 @@ This documentation contains:
 - The [README](\ref README) file of the project.
 - The [LICENSE](\ref license) file of the project.
 - The [release notes](\ref release_notes).
+- The [ctypes Python interface guide](\ref python_ctypes).
