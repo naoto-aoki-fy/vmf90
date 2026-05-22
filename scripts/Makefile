@@ -15,7 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with vmf90.  If not, see <http://www.gnu.org/licenses/>.
 
-F90 = h5fc -O3 -I.
+F90 = gfortran
+F90FLAGS = -O3 -I.
+HDF5_CFLAGS ?= $(shell pkg-config --cflags hdf5-fortran 2>/dev/null || pkg-config --cflags hdf5)
+HDF5_LIBS ?= $(shell pkg-config --libs hdf5-fortran 2>/dev/null || pkg-config --libs hdf5)
 VPATH = ../src
 all : hmf fel
 hmf: vmf90_hmf
@@ -26,19 +29,19 @@ vmf90_version.h: vmf90_version.h.in FORCE
 FORCE:
 
 vmf90.o: vmf90.f90 vmf90_version.h
-	$(F90) -c $<
+	$(F90) $(F90FLAGS) $(HDF5_CFLAGS) -c $<
 
 %.o : %.f90
-	$(F90) -c $<
+	$(F90) $(F90FLAGS) $(HDF5_CFLAGS) -c $<
 
 vmf90_hmf: h5md.o spline_module.o Vlasov_module.o HMF_module.o ParseText.o vmf90_version.h vmf90.o vmf90_hmf.o
-	$(F90) h5md.o spline_module.o Vlasov_module.o HMF_module.o ParseText.o vmf90.o vmf90_hmf.o -o vmf90_hmf
+	$(F90) $(F90FLAGS) h5md.o spline_module.o Vlasov_module.o HMF_module.o ParseText.o vmf90.o vmf90_hmf.o $(HDF5_LIBS) -o vmf90_hmf
 
 vmf90_fel: h5md.o spline_module.o Vlasov_module.o FEL_module.o ParseText.o vmf90_version.h vmf90.o vmf90_fel.o
-	$(F90) h5md.o spline_module.o Vlasov_module.o FEL_module.o ParseText.o vmf90.o vmf90_fel.o -o vmf90_fel
+	$(F90) $(F90FLAGS) h5md.o spline_module.o Vlasov_module.o FEL_module.o ParseText.o vmf90.o vmf90_fel.o $(HDF5_LIBS) -o vmf90_fel
 
 vmf90_ab: h5md.o spline_module.o Vlasov_module.o AB_module.o ParseText.o vmf90_version.h vmf90.o vmf90_ab.o
-	$(F90) h5md.o spline_module.o Vlasov_module.o AB_module.o ParseText.o vmf90.o vmf90_ab.o -o vmf90_ab
+	$(F90) $(F90FLAGS) h5md.o spline_module.o Vlasov_module.o AB_module.o ParseText.o vmf90.o vmf90_ab.o $(HDF5_LIBS) -o vmf90_ab
 
 clean:
 	rm -f spline_module.o Vlasov_module.o HMF_module.o AB_module.o ParseText.o vmf90.o FEL_module.o \
