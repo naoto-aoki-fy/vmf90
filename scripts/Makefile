@@ -18,7 +18,7 @@
 F90 = gfortran
 F90FLAGS = -O3 -I.
 HDF5_CFLAGS ?= $(shell pkg-config --cflags hdf5-fortran 2>/dev/null || pkg-config --cflags hdf5)
-HDF5_LIBS ?= $(shell pkg-config --libs hdf5-fortran 2>/dev/null || pkg-config --libs hdf5)
+HDF5_LIBS ?= $(shell pkg-config --libs hdf5-fortran 2>/dev/null || (pkg-config --libs hdf5 2>/dev/null; echo -lhdf5_fortran -lhdf5hl_fortran))
 VPATH = ../src
 all : hmf fel
 hmf: vmf90_hmf
